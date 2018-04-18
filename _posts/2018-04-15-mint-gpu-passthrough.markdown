@@ -96,7 +96,7 @@ sudo vi /sbin/vfio-pci-override-vga.sh
 
 Then add the following content:
 
-```
+```plaintext
 #!/bin/sh
 
 # Replace with your devices below.
