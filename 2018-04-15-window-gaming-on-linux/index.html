@@ -1,0 +1,411 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Windows GPU gaming on Linux &#8212; Ars Facere  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/theme_overrides.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <link rel="index" title="Index" href="../genindex/" />
+    <link rel="search" title="Search" href="../search/" />
+  
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  
+  
+  <style type="text/css">
+    ul.ablog-archive {list-style: none; overflow: auto; margin-left: 0px}
+    ul.ablog-archive li {float: left; margin-right: 5px; font-size: 80%}
+    ul.postlist a {font-style: italic;}
+    ul.postlist-style-disc {list-style-type: disc;}
+    ul.postlist-style-none {list-style-type: none;}
+    ul.postlist-style-circle {list-style-type: circle;}
+  </style>
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="windows-gpu-gaming-on-linux">
+<h1>Windows GPU gaming on Linux<a class="headerlink" href="#windows-gpu-gaming-on-linux" title="Permalink to this headline">¶</a></h1>
+<img alt="../_images/witcher.jpg" src="../_images/witcher.jpg" />
+<p>Gaming on Linux with virtual machine running Windows takes a little bit of work, specifically on how to make the GPU visible to windows. In practice, you’ll need two GPUs (one for Linux, one for the Windows virtual machine (VM)). This guide explains how make a GPU visible to the Windows VM.</p>
+<div class="section" id="gpu-passthrough-is-in-fact-simple">
+<h2>GPU passthrough is in fact simple<a class="headerlink" href="#gpu-passthrough-is-in-fact-simple" title="Permalink to this headline">¶</a></h2>
+<p>I’ve read many guides, and each time something is missing or
+I need to install some extra stack which I don’t understand.
+And I thought to myself why does it have to be so hard? Eventually,
+after days of toying with it, I got everything to work on Mint 18.
+I feel I learned a lot in process and it’s not so complicated.</p>
+</div>
+<div class="section" id="a-minimal-approach">
+<h2>A minimal approach<a class="headerlink" href="#a-minimal-approach" title="Permalink to this headline">¶</a></h2>
+<p>Let’s just stick to the basics, the only things described here will be
+to configure your Linux install so that KVM/QEMU can access a GPU
+(or some other device) in passthrough mode.</p>
+<p><strong>Check hardware requirements, you need a CPU that supports virtualization (VT-d).
+See the links at the end for hardware help, virtual machine setup etc…</strong></p>
+<p>It just takes 3 steps:</p>
+<ol class="arabic simple">
+<li><p>Setup GRUB to enable IOMMU in your system.</p></li>
+<li><p>Find the GPU/devices you want to linux to set aside for VM passthrough.</p></li>
+<li><p>Configure modprobe and initramsfs</p></li>
+</ol>
+<p>And that’s all really. So let’s start.</p>
+<div class="section" id="configure-grub">
+<h3>Configure GRUB<a class="headerlink" href="#configure-grub" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo vi /etc/default/grub
+</pre></div>
+</div>
+<p>Add modify the line <code class="code docutils literal notranslate"><span class="pre">GRUB_CMDLINE_LINUX</span></code> to</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">GRUB_CMDLINE_LINUX</span><span class="o">=</span><span class="s2">&quot;intel_iommu=on iommu=pt&quot;</span>
+</pre></div>
+</div>
+<p>Note for AMD users: use <code class="code docutils literal notranslate"><span class="pre">amd_iommu=on</span></code>.</p>
+<p>Now update grub:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo update-grub
+</pre></div>
+</div>
+</div>
+<div class="section" id="reboot">
+<h3>Reboot<a class="headerlink" href="#reboot" title="Permalink to this headline">¶</a></h3>
+<p>After reboot iommu groups will be available.</p>
+</div>
+<div class="section" id="identify-the-devices-you-want-to-passthrough">
+<h3>Identify the devices you want to passthrough<a class="headerlink" href="#identify-the-devices-you-want-to-passthrough" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>lspci -k <span class="p">|</span> grep -i -A <span class="m">3</span> vga
+</pre></div>
+</div>
+<p>Sample output</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>03:00.0 VGA compatible controller: NVIDIA Corporation Device 1b06 (rev a1)
+    Subsystem: eVga.com. Corp. Device 6598
+    Kernel driver in use: nvidia
+    Kernel modules: nvidiafb, nouveau, nvidia_387_drm, nvidia_387
+03:00.1 Audio device: NVIDIA Corporation Device 10ef (rev a1)
+    Subsystem: eVga.com. Corp. Device 6598
+    Kernel driver in use: snd_hda_intel
+    Kernel modules: snd_hda_intel
+04:00.0 VGA compatible controller: NVIDIA Corporation Device 1b06 (rev a1)
+    Subsystem: eVga.com. Corp. Device 6598
+    Kernel driver in use: nvidia
+    Kernel modules: nvidiafb, nouveau, nvidia_387_drm, nvidia_387
+04:00.1 Audio device: NVIDIA Corporation Device 10ef (rev a1)
+    Subsystem: eVga.com. Corp. Device 6598
+    Kernel driver in use: snd_hda_intel
+    Kernel modules: snd_hda_intel
+</pre></div>
+</div>
+<p>Let’s say we want to pass 04:00.0 for video and 04.00.1 for nvidia audio to the VM.</p>
+</div>
+<div class="section" id="configuring-modprobe-and-initramfs">
+<h3>Configuring modprobe and initramfs<a class="headerlink" href="#configuring-modprobe-and-initramfs" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="passthrough-script">
+<h4>Passthrough script<a class="headerlink" href="#passthrough-script" title="Permalink to this headline">¶</a></h4>
+<p>Create the file with an editor</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo vi /sbin/vfio-pci-override-vga.sh
+</pre></div>
+</div>
+<p>Then add the following content:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/sh</span>
+
+<span class="c1"># Replace with your devices below.</span>
+<span class="nv">DEVS</span><span class="o">=</span><span class="s2">&quot;04:00.0 04:00.1&quot;</span>
+
+<span class="k">for</span> DEV in <span class="nv">$DEVS</span><span class="p">;</span> <span class="k">do</span>
+    <span class="nb">echo</span> <span class="s2">&quot;vfio-pci&quot;</span> &gt; /sys/bus/pci/devices/0000:<span class="nv">$DEV</span>/driver_override
+<span class="k">done</span>
+
+modprobe -i vfio-pci
+</pre></div>
+</div>
+</div>
+<div class="section" id="configure-modprobe">
+<h4>Configure modprobe<a class="headerlink" href="#configure-modprobe" title="Permalink to this headline">¶</a></h4>
+<p>Create the file with an editor</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo vi /etc/modprobe.d/local.conf
+</pre></div>
+</div>
+<p>And add the following contents to it</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>install vfio-pci /sbin/vfio-pci-override-vga.sh
+</pre></div>
+</div>
+</div>
+<div class="section" id="configuring-initramfs">
+<h4>Configuring initramfs<a class="headerlink" href="#configuring-initramfs" title="Permalink to this headline">¶</a></h4>
+<p>Add modules by editing the following file:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo vi /etc/initramfs-tools/modules
+</pre></div>
+</div>
+<p>And add the following 4 lines at the end:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>vfio
+vfio_iommu_type1
+vfio_pci
+vfio_virqfd
+</pre></div>
+</div>
+<p>Add the passthrough script by creating the following file:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo vi /etc/initramfs-tools/hooks/vfio-pci-override-vga
+</pre></div>
+</div>
+<p>And add the following contents:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#! /bin/bash</span>
+
+. /usr/share/initramfs-tools/hook-functions
+copy_exec /sbin/vfio-pci-override-vga.sh sbin/vfio-pci-override-vga.sh
+</pre></div>
+</div>
+<p>And finally update initramfs</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo update-initramfs -u
+</pre></div>
+</div>
+</div>
+<div class="section" id="verifying-the-contents">
+<h4>Verifying the contents<a class="headerlink" href="#verifying-the-contents" title="Permalink to this headline">¶</a></h4>
+<p>In my case, it generated a file called <code class="code docutils literal notranslate"><span class="pre">/boot/initrd.img-4.13.0-38-generic</span></code>, replace with the one for you.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo lsinitramfs -l /boot/initrd.img-4.13.0-38-generic <span class="p">|</span> grep -i vfio
+</pre></div>
+</div>
+<p>The output should look like this:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>-rwxr-xr-x   1 root     root          158 Apr 14 22:46 sbin/vfio-pci-override-vga.sh
+drwxr-xr-x   4 root     root            0 Apr 15 11:26 lib/modules/4.13.0-38-generic/kernel/drivers/vfio
+-rw-r--r--   1 root     root         9830 Mar 14 12:53 lib/modules/4.13.0-38-generic/kernel/drivers/vfio/vfio_virqfd.ko
+-rw-r--r--   1 root     root        27838 Mar 14 12:53 lib/modules/4.13.0-38-generic/kernel/drivers/vfio/vfio_iommu_type1.ko
+drwxr-xr-x   2 root     root            0 Apr 15 11:26 lib/modules/4.13.0-38-generic/kernel/drivers/vfio/mdev
+-rw-r--r--   1 root     root         7766 Mar 14 12:53 lib/modules/4.13.0-38-generic/kernel/drivers/vfio/mdev/vfio_mdev.ko
+-rw-r--r--   1 root     root        26142 Mar 14 12:53 lib/modules/4.13.0-38-generic/kernel/drivers/vfio/mdev/mdev.ko
+drwxr-xr-x   2 root     root            0 Apr 15 11:26 lib/modules/4.13.0-38-generic/kernel/drivers/vfio/pci
+-rw-r--r--   1 root     root        74518 Mar 14 12:53 lib/modules/4.13.0-38-generic/kernel/drivers/vfio/pci/vfio-pci.ko
+-rw-r--r--   1 root     root        47182 Mar 14 12:53 lib/modules/4.13.0-38-generic/kernel/drivers/vfio/vfio.ko
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="id1">
+<h3>Reboot<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>Now vfio is configured and your devices should be ready for passthrough, this can be verified with:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>03:00.0 VGA compatible controller: NVIDIA Corporation Device 1b06 (rev a1)
+    Subsystem: eVga.com. Corp. Device 6598
+    Kernel driver in use: nvidia
+    Kernel modules: nvidiafb, nouveau, nvidia_387_drm, nvidia_387
+03:00.1 Audio device: NVIDIA Corporation Device 10ef (rev a1)
+    Subsystem: eVga.com. Corp. Device 6598
+    Kernel driver in use: snd_hda_intel
+    Kernel modules: snd_hda_intel
+04:00.0 VGA compatible controller: NVIDIA Corporation Device 1b06 (rev a1)
+    Subsystem: eVga.com. Corp. Device 6598
+    Kernel driver in use: vfio-pci
+    Kernel modules: nvidiafb, nouveau, nvidia_387_drm, nvidia_387
+04:00.1 Audio device: NVIDIA Corporation Device 10ef (rev a1)
+    Subsystem: eVga.com. Corp. Device 6598
+    Kernel driver in use: vfio-pci
+    Kernel modules: snd_hda_intel
+</pre></div>
+</div>
+<p>Note that now the value says <strong>vfio-pci</strong> for <code class="code docutils literal notranslate"><span class="pre">Kernel</span> <span class="pre">driver</span> <span class="pre">in</span> <span class="pre">use</span></code>.</p>
+</div>
+<div class="section" id="and-voila">
+<h3>And voila<a class="headerlink" href="#and-voila" title="Permalink to this headline">¶</a></h3>
+<p>It’s really simple in the end. Setting up the virtual machine should be straightforward but find some links in the next
+section to help you out.</p>
+<p>In the end, I installed Windows inside a virtual machine. With KVM/QEMU configured to use the GPU I configured to be in
+passthrough mode, I was able to install nVidia’s driver. Being playing The Witcher 3 at 70 FPS in Ultra details at
+1440p with a GTX1080-TI, all of this in my simple little virtual machine. As to the virtual machine, I kept it entirely
+basic: everything was default except for passing the GPU directly of course (no hugepages, used the default qcow2 drive
+format, no cpu assignment).</p>
+</div>
+</div>
+<div class="section" id="resources">
+<h2>Resources<a class="headerlink" href="#resources" title="Permalink to this headline">¶</a></h2>
+<p>I didn’t come up with everything in this guide, I just simplified what I found in various guides. These guides are more
+thorough and more complex, so if you encounter problem/difficulties you might find answers there. Here are the links:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://forums.linuxmint.com/viewtopic.php?f=231&amp;t=212692">powerhouse’ HOW-TO make dual-boot obsolete using kvm VGA passthrough</a>. Discusses Mint setup, hardware requirements. And it goes in depth to optimize other aspects of VMs (such as hugepages). In addition it tells how start a VM, with a lot of options. Lot of information but it can be overwhelming.</p></li>
+<li><p><a class="reference external" href="http://vfio.blogspot.co.uk/2015/05/vfio-gpu-how-to-series-part-1-hardware.html">Alex Williamson series of VFIO</a>. This is another goldmine of information. It also goes quite in depth in a many aspect. The setup is for Fedora but shares a lot in common with Mint anyway. The author discusses hardware requirements, VM setups and advanced configurations beyong GPU passthrough (which may not be really needed). I like the screenshots of the setting up QEMU/KVM, it made it easy to follow for me.</p></li>
+</ul>
+<p>So thanks to both these authors, I hope you’ll find this blog post useful and clear.</p>
+</div>
+</div>
+
+  <div class="section">
+  
+    
+
+
+<div class="section">
+  <span style="float: left;">
+  
+  </span>
+  <span>&nbsp;</span>
+  <span style="float: right;">
+  
+  Next: 
+  <a href="../2020-10-01-sequential-tinkering-part-1/">
+    Sequential Tinkering - Part 1
+    
+  </a>
+  
+  </span>
+</div>
+
+  
+  
+  </div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../">Ars Facere</a></h1>
+
+
+
+
+
+
+
+
+
+  
+  
+  <h2>
+  
+  
+    15 April 2018
+  
+  </h2>
+
+  <ul>
+    
+
+  
+  <li id="author"><span>Author:</span>
+    
+      
+      <a href="../blog/author/david-berthelot/">David Berthelot</a>
+      
+    </li>
+  
+
+  
+
+  
+
+  
+
+  
+  <li id="tags"><span>Tags:
+      </span>
+    
+      
+      <a href="../blog/tag/linux/">linux</a>
+      
+    
+      
+      <a href="../blog/tag/gaming/">gaming</a>
+      
+    </li>
+  
+  
+  </ul>
+
+  <h3><a href="../blog/">Recent Posts</a></h3>
+  <ul>
+    
+    
+      <li><a href="../2020-10-01-sequential-tinkering-part-1/">01 October - Sequential Tinkering - Part 1</a></li>
+    
+  </ul>
+
+  <h3><a href="../blog/archive/">Archives</a></h3>
+  <ul>
+  
+    
+    <li><a href="../blog/2020/">2020 (1)</a></li>
+    
+  
+    
+    <li><a href="../blog/2018/">2018 (1)</a></li>
+    
+  
+  </ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+  <h3><a href="../blog/tag/">Tags</a></h3>
+  <style type="text/css">
+    ul.ablog-cloud {list-style: none; overflow: auto;}
+    ul.ablog-cloud li {float: left; height: 20pt; line-height: 18pt; margin-right: 5px;}
+    ul.ablog-cloud a {text-decoration: none; vertical-align: middle;}
+    li.ablog-cloud-1{font-size: 80%;}
+    li.ablog-cloud-2{font-size: 95%;}
+    li.ablog-cloud-3{font-size: 110%;}
+    li.ablog-cloud-4{font-size: 125%;}
+    li.ablog-cloud-5{font-size: 140%;}
+  </style>
+  <ul class="ablog-cloud">
+    
+      
+      <li class="ablog-cloud ablog-cloud-3">
+        <a href="../blog/tag/gaming/">gaming</a></li>
+      
+    
+      
+      <li class="ablog-cloud ablog-cloud-3">
+        <a href="../blog/tag/linux/">linux</a></li>
+      
+    
+      
+      <li class="ablog-cloud ablog-cloud-3">
+        <a href="../blog/tag/machine-learning/">machine learning</a></li>
+      
+    
+      
+      <li class="ablog-cloud ablog-cloud-3">
+        <a href="../blog/tag/objax/">objax</a></li>
+      
+    
+  </ul>
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, David Berthelot.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
