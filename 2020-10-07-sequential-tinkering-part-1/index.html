@@ -1,0 +1,391 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sequential Tinkering - Part 1 &#8212; Ars Facere  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/theme_overrides.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <link rel="index" title="Index" href="../genindex/" />
+    <link rel="search" title="Search" href="../search/" />
+  
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  
+  
+  <style type="text/css">
+    ul.ablog-archive {list-style: none; overflow: auto; margin-left: 0px}
+    ul.ablog-archive li {float: left; margin-right: 5px; font-size: 80%}
+    ul.postlist a {font-style: italic;}
+    ul.postlist-style-disc {list-style-type: disc;}
+    ul.postlist-style-none {list-style-type: none;}
+    ul.postlist-style-circle {list-style-type: circle;}
+  </style>
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="sequential-tinkering-part-1">
+<h1>Sequential Tinkering - Part 1<a class="headerlink" href="#sequential-tinkering-part-1" title="Permalink to this headline">¶</a></h1>
+<img alt="../_images/lego-bridge.jpg" src="../_images/lego-bridge.jpg" />
+<p><a class="reference external" href="https://github.com/google/objax">Objax</a> offers a significantly enhanced version of the ubiquitous <code class="code docutils literal notranslate"><span class="pre">Sequential</span></code> layer. In this first part of a two-part series, I explore some of its basic, yet powerful, features.</p>
+<div class="section" id="what-is-a-sequential-layer-anyway">
+<h2>What is a sequential layer anyway?<a class="headerlink" href="#what-is-a-sequential-layer-anyway" title="Permalink to this headline">¶</a></h2>
+<p>It is very common in machine learning to run a sequence of operations where one layer’s output is used as input for the next.
+And that’s pretty much what a sequential layer does: it’s a sequence of modules to execute one after the other by feeding one’s output into the next.</p>
+<p>Before going into Objax’s <a class="reference external" href="https://objax.readthedocs.io/en/latest/objax/nn.html#objax.nn.Sequential">Sequential</a> module, let’s take a look at some other frameworks.</p>
+<div class="section" id="keras">
+<h3>Keras<a class="headerlink" href="#keras" title="Permalink to this headline">¶</a></h3>
+<p>Keras’ <a class="reference external" href="https://keras.io/api/models/sequential/">Sequential class</a> implements a standard interface.
+With the <code class="code docutils literal notranslate"><span class="pre">add</span></code> method one can add layers to a sequence, then <code class="code docutils literal notranslate"><span class="pre">build</span></code> a model and execute it.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Sequential</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,)))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">build</span><span class="p">((</span><span class="kc">None</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="pytorch">
+<h3>PyTorch<a class="headerlink" href="#pytorch" title="Permalink to this headline">¶</a></h3>
+<p>PyTorch’s <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Sequential.html">Sequential module</a> offers a similar experience with one main difference: it allows to use a list (passed as <code class="code docutils literal notranslate"><span class="pre">*args*</span></code>) or an ordered dictionary for custom naming of layers.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">20</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span>
+                      <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+                      <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span>
+                      <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="objax-sequential-module">
+<h2>Objax Sequential module<a class="headerlink" href="#objax-sequential-module" title="Permalink to this headline">¶</a></h2>
+<p>Objax’s <a class="reference external" href="https://objax.readthedocs.io/en/latest/objax/nn.html#objax.nn.Sequential">Sequential</a> module is basically a Python list.
+As such, it can make quite a few of things natural from a Python perspective.
+It can do what the previously seen <code class="code docutils literal notranslate"><span class="pre">Sequential</span></code> implementations can do, but thanks to its Pythonic design it can do a few more things easily.
+Objax’ by design supports general custom naming, so, unlike PyTorch, there’s no need for <code class="code docutils literal notranslate"><span class="pre">OrderedDict</span></code> support in <a class="reference external" href="https://objax.readthedocs.io/en/latest/objax/nn.html#objax.nn.Sequential">Sequential</a>.</p>
+<p>Let’s go in depth through the following features:</p>
+<ul class="simple">
+<li><p>Mixing modules and functions.</p></li>
+<li><p>Benefits of list syntax.</p></li>
+<li><p>Argument passing to modules in a sequence.</p></li>
+</ul>
+<div class="section" id="basics">
+<h3>Basics<a class="headerlink" href="#basics" title="Permalink to this headline">¶</a></h3>
+<p>In its most basic form, a <a class="reference external" href="https://objax.readthedocs.io/en/latest/objax/nn.html#objax.nn.Sequential">Sequential</a> layer is a list of modules and functions.
+One difference from PyTorch is that functions in Objax don’t need to be provided as modules to be used in <a class="reference external" href="https://objax.readthedocs.io/en/latest/objax/nn.html#objax.nn.Sequential">Sequential</a>: they can be used as is, resulting in less API duplication.</p>
+<p>You can use the standard Python <code class="code docutils literal notranslate"><span class="pre">functools.partial</span></code> API to modify the default arguments of a function.
+Here’s an example using <code class="code docutils literal notranslate"><span class="pre">leaky_relu</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">import</span> <span class="nn">objax</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">objax</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">([</span>
+    <span class="n">objax</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Conv2D</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+    <span class="n">objax</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">relu</span><span class="p">,</span>
+    <span class="n">objax</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Conv2D</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+<span class="hll">    <span class="n">partial</span><span class="p">(</span><span class="n">objax</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">leaky_relu</span><span class="p">,</span> <span class="n">negative_slope</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)])</span>
+</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">vars</span><span class="p">())</span>
+<span class="c1"># (Sequential)[0](Conv2D).b       20 (20, 1, 1)</span>
+<span class="c1"># (Sequential)[0](Conv2D).w      500 (5, 5, 1, 20)</span>
+<span class="c1"># (Sequential)[2](Conv2D).b       64 (64, 1, 1)</span>
+<span class="c1"># (Sequential)[2](Conv2D).w    32000 (5, 5, 20, 64)</span>
+<span class="c1"># +Total(4)                    32584</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="benefits-of-the-list-syntax">
+<h3>Benefits of the list syntax<a class="headerlink" href="#benefits-of-the-list-syntax" title="Permalink to this headline">¶</a></h3>
+<p>Since <a class="reference external" href="https://objax.readthedocs.io/en/latest/objax/nn.html#objax.nn.Sequential">Sequential</a> is a list, one can easily inspect a layer or replace it using standard Python syntax:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">value</span>
+
+<span class="c1"># Update the value of the first convolution bias</span>
+<span class="n">model</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">model</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+<span class="c1"># Replace the second convolution</span>
+<span class="n">model</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">objax</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Conv2D</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">vars</span><span class="p">())</span>
+<span class="c1"># (Sequential)[0](Conv2D).b       20 (20, 1, 1)</span>
+<span class="c1"># (Sequential)[0](Conv2D).w      500 (5, 5, 1, 20)</span>
+<span class="c1"># (Sequential)[2](Conv2D).b       32 (32, 1, 1)</span>
+<span class="c1"># (Sequential)[2](Conv2D).w     5760 (3, 3, 20, 32)</span>
+<span class="c1"># +Total(4)                     6312</span>
+</pre></div>
+</div>
+<p>Just like for a regular list, one can also append, extend, insert into <a class="reference external" href="https://objax.readthedocs.io/en/latest/objax/nn.html#objax.nn.Sequential">Sequential</a>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">objax</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">relu</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">objax</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Conv2D</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">model</span><span class="p">))</span>
+<span class="c1"># 6</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">vars</span><span class="p">())</span>
+<span class="c1"># (Sequential)[0](Conv2D).b       20 (20, 1, 1)</span>
+<span class="c1"># (Sequential)[0](Conv2D).w      500 (5, 5, 1, 20)</span>
+<span class="c1"># (Sequential)[2](Conv2D).b       32 (32, 1, 1)</span>
+<span class="c1"># (Sequential)[2](Conv2D).w     5760 (3, 3, 20, 32)</span>
+<span class="c1"># (Sequential)[4](Conv2D).b        8 (8, 1, 1)</span>
+<span class="c1"># (Sequential)[4](Conv2D).w     2304 (3, 3, 32, 8)</span>
+<span class="c1"># +Total(6)                     8624</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="argument-passing-to-modules-in-sequential">
+<h3>Argument passing to modules in Sequential<a class="headerlink" href="#argument-passing-to-modules-in-sequential" title="Permalink to this headline">¶</a></h3>
+<p>Sometimes, one may want to customize a function call, or some module <code class="code docutils literal notranslate"><span class="pre">__call__</span></code> method that takes extra arguments.
+<a class="reference external" href="https://objax.readthedocs.io/en/latest/objax/nn.html#objax.nn.Sequential">Sequential</a> handles them <strong>automatically</strong>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jn</span>
+<span class="kn">import</span> <span class="nn">objax</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">objax</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">([</span>
+    <span class="n">objax</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span>
+<span class="hll">    <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">negative_slope</span><span class="o">=</span><span class="mf">0.01</span><span class="p">:</span> <span class="n">jn</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span> <span class="o">*</span> <span class="n">negative_slope</span><span class="p">),</span>
+</span>    <span class="n">objax</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+<span class="hll">    <span class="n">objax</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">leaky_relu</span>  <span class="c1"># Built-in leaky_relu also uses &quot;negative_slope&quot;</span>
+</span><span class="p">])</span>
+
+<span class="c1"># Create some mock input</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">jn</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<span class="c1"># [0.08871414 0.17742828 0.26614243 0.35485655 0.4435708 ]</span>
+
+<span class="c1"># Now let&#39;s set the negative_slope argument for leaky_relu</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">negative_slope</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<span class="c1"># [0.16334192 0.32668385 0.49002576 0.6533677  0.8167097 ]</span>
+</pre></div>
+</div>
+<p>The same concepts apply to module arguments.
+For example, we can make a modified <code class="code docutils literal notranslate"><span class="pre">Linear</span></code> module that takes an extra argument.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jn</span>
+<span class="kn">import</span> <span class="nn">objax</span>
+<span class="kn">from</span> <span class="nn">objax.typing</span> <span class="kn">import</span> <span class="n">JaxArray</span>
+
+<span class="k">class</span> <span class="nc">MyModule</span><span class="p">(</span><span class="n">objax</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">):</span>
+    <span class="c1"># We add an extra float argument called offset.</span>
+    <span class="c1"># We also add kwargs support for a scale argument.</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">JaxArray</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">JaxArray</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">jn</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="s1">&#39;scale&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">*=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;scale&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">y</span> <span class="o">+</span> <span class="n">offset</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">objax</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">([</span>
+    <span class="n">MyModule</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span> <span class="n">objax</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">leaky_relu</span><span class="p">,</span>
+    <span class="n">MyModule</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">objax</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">leaky_relu</span><span class="p">])</span>
+
+<span class="c1"># Create some mock input</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">jn</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<span class="c1"># [0.08871414 0.17742828 0.26614243 0.35485655 0.4435708 ]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<span class="c1"># [-0.00090197  0.24507368  0.31848168  0.47458148  0.6344541 ]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<span class="c1"># [-0.00090197  0.24507368  0.31848168  0.47458148  0.6344541 ]</span>
+<span class="c1"># Note: as expected scale=1 doesn&#39;t change the return value</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<span class="c1"># [1. 1. 1. 1. 1.]</span>
+<span class="c1"># Note: scale=0 multiplies the layer output by 0, thus only the offset is left.</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">negative_slope</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<span class="c1"># [-0.01803935  0.27238262  0.42335594  0.64115095  0.8619946 ]</span>
+<span class="c1"># And like before, you can send arguments to leaky_relu as well.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Permalink to this headline">¶</a></h2>
+<p>Objax’ <a class="reference external" href="https://objax.readthedocs.io/en/latest/objax/nn.html#objax.nn.Sequential">Sequential</a> design as a list simplifies its manipulation by following Python’s behavior.
+It transparently supports passing arguments to the functions and modules that use them (see example above).</p>
+<p>In the next part of this series, we’ll look into <a class="reference external" href="https://objax.readthedocs.io/en/latest/objax/nn.html#objax.nn.Sequential">Sequential</a>’s advanced features that can be useful for complex neural networks, for representation learning to create embeddings from a classifier easily, and more.</p>
+</div>
+</div>
+
+  <div class="section">
+  
+    
+
+
+<div class="section">
+  <span style="float: left;">
+  
+  Previous: 
+  <a href="../2018-04-15-window-gaming-on-linux/">
+    
+    Windows GPU gaming on Linux
+  </a>
+  
+  </span>
+  <span>&nbsp;</span>
+  <span style="float: right;">
+  
+  </span>
+</div>
+
+  
+  
+  </div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../">Ars Facere</a></h1>
+
+
+
+
+
+
+
+
+
+  
+  
+  <h2>
+  
+  
+    07 October 2020
+  
+  </h2>
+
+  <ul>
+    
+
+  
+  <li id="author"><span>Author:</span>
+    
+      
+      <a href="../blog/author/david-berthelot/">David Berthelot</a>
+      
+    </li>
+  
+
+  
+
+  
+
+  
+
+  
+  <li id="tags"><span>Tags:
+      </span>
+    
+      
+      <a href="../blog/tag/machine-learning/">machine learning</a>
+      
+    
+      
+      <a href="../blog/tag/objax/">objax</a>
+      
+    </li>
+  
+  
+  </ul>
+
+  <h3><a href="../blog/">Recent Posts</a></h3>
+  <ul>
+    
+    
+      <li><a href="../2018-04-15-window-gaming-on-linux/">15 April - Windows GPU gaming on Linux</a></li>
+    
+  </ul>
+
+  <h3><a href="../blog/archive/">Archives</a></h3>
+  <ul>
+  
+    
+    <li><a href="../blog/2020/">2020 (1)</a></li>
+    
+  
+    
+    <li><a href="../blog/2018/">2018 (1)</a></li>
+    
+  
+  </ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+  <h3><a href="../blog/tag/">Tags</a></h3>
+  <style type="text/css">
+    ul.ablog-cloud {list-style: none; overflow: auto;}
+    ul.ablog-cloud li {float: left; height: 20pt; line-height: 18pt; margin-right: 5px;}
+    ul.ablog-cloud a {text-decoration: none; vertical-align: middle;}
+    li.ablog-cloud-1{font-size: 80%;}
+    li.ablog-cloud-2{font-size: 95%;}
+    li.ablog-cloud-3{font-size: 110%;}
+    li.ablog-cloud-4{font-size: 125%;}
+    li.ablog-cloud-5{font-size: 140%;}
+  </style>
+  <ul class="ablog-cloud">
+    
+      
+      <li class="ablog-cloud ablog-cloud-3">
+        <a href="../blog/tag/gaming/">gaming</a></li>
+      
+    
+      
+      <li class="ablog-cloud ablog-cloud-3">
+        <a href="../blog/tag/linux/">linux</a></li>
+      
+    
+      
+      <li class="ablog-cloud ablog-cloud-3">
+        <a href="../blog/tag/machine-learning/">machine learning</a></li>
+      
+    
+      
+      <li class="ablog-cloud ablog-cloud-3">
+        <a href="../blog/tag/objax/">objax</a></li>
+      
+    
+  </ul>
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, David Berthelot.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
